@@ -8,5 +8,5 @@ import lombok.Setter;
 @Setter
 @Builder
 public class CreateCallResponse {
-    private Integer code;
+    private String code;
 }

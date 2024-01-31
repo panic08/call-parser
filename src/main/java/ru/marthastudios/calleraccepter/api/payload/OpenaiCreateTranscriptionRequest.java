@@ -12,4 +12,6 @@ import java.io.File;
 public class OpenaiCreateTranscriptionRequest {
     private File file;
     private String model;
+    private String language;
+    private float temperature;
 }

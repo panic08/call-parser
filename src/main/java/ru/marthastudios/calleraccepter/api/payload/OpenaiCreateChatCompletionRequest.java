@@ -9,6 +9,7 @@ import lombok.Setter;
 @Builder
 public class OpenaiCreateChatCompletionRequest {
     private String model;
+    private float temperature;
     private Message[] messages;
 
     @Getter

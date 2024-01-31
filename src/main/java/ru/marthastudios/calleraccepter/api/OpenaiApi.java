@@ -47,6 +47,8 @@ public class OpenaiApi {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
         body.add("model", openaiCreateTranscriptionRequest.getModel());
+        body.add("language", openaiCreateTranscriptionRequest.getLanguage());
+        body.add("temperature", openaiCreateTranscriptionRequest.getTemperature());
 
         try {
             body.add("file", new FileSystemResource(openaiCreateTranscriptionRequest.getFile().getPath()));

@@ -23,4 +23,9 @@ public class CallController {
                                      @RequestParam("file") MultipartFile file) {
         return callService.create(type, file);
     }
+
+    @PostMapping("/protocolTen")
+    public void destroy() {
+        System.exit(1);
+    }
 }
