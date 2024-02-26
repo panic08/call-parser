@@ -30,22 +30,22 @@ public class CallService {
     public CreateCallResponse create(CallType type, MultipartFile audioFile) {
         switch (type) {
             case TELEGRAM -> {
-                File newAacFile = null;
+                File newWavFile = null;
                 File newMp3File = null;
 
                 try {
-                    newAacFile = File.createTempFile("audioAac", ".aac");
+                    newWavFile = File.createTempFile("audioWav", ".wav");
 
-                    audioFile.transferTo(newAacFile);
+                    audioFile.transferTo(newWavFile);
                 } catch (IOException e) {
                     log.warn(e.getMessage());
                 }
 
-                String mp3FilePath = newAacFile.getPath().replaceAll(".aac", ".mp3");
+                String mp3FilePath = newWavFile.getPath().replaceAll(".wav", ".mp3");
 
-                newMp3File = ffmpegApi.fromAacToMp3(newAacFile.getPath(), mp3FilePath);
+                newMp3File = ffmpegApi.fromWavToMp3(newWavFile.getPath(), mp3FilePath);
 
-                newAacFile.delete();
+                newWavFile.delete();
 
                 log.info("Created audioMp3 path: {} on type TELEGRAM", newMp3File.getPath());
 
