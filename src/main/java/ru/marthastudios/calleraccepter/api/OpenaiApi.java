@@ -23,7 +23,7 @@ import ru.marthastudios.calleraccepter.property.OpenaiProperty;
 public class OpenaiApi {
     private final OpenaiProperty openaiProperty;
     private final RestTemplate restTemplate;
-    private static final String OPENAI_API_URL = "https://api.openai.com/v1";
+    private final String OPENAI_API_URL = "https://api.openai.com/v1";
 
     public OpenaiCreateChatCompletionResponse createChatCompletion(OpenaiCreateChatCompletionRequest openaiCreateChatCompletionRequest) {
         HttpHeaders headers = new HttpHeaders();
