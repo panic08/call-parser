@@ -28,61 +28,127 @@ import java.util.Date;
 public class CallService {
     private final DeepGramApi deepGramApi;
     private final StringUtil stringUtil;
+    private final FfmpegApi ffmpegApi;
+    private final OpenaiApi openaiApi;
 
     @Value("${audioBackupCalls.filesPath}")
     private String audioBackupFilesPath;
 
-    public CreateCallResponse create(CallType type, MultipartFile audioFile) {
-        switch (type) {
-            case TELEGRAM -> {
-                File principalAudioFile = null;
-                String principalAudioFileExtension = audioFile.getResource().getFilename()
-                        .substring(audioFile.getResource().getFilename().length() - 4);
+    public CreateCallResponse create(String model, CallType type, MultipartFile audioFile) {
+        switch (model) {
+            case "nova-2" -> {
+                switch (type) {
+                    case TELEGRAM -> {
+                        File principalAudioFile = null;
+                        String principalAudioFileExtension = audioFile.getResource().getFilename()
+                                .substring(audioFile.getResource().getFilename().length() - 4);
 
-                try {
-                    principalAudioFile = File.createTempFile("newPrincipalAudioFile", principalAudioFileExtension);
+                        try {
+                            principalAudioFile = File.createTempFile("newPrincipalAudioFile", principalAudioFileExtension);
 
-                    byte[] principalAudioFileByteContent = audioFile.getBytes();
+                            byte[] principalAudioFileByteContent = audioFile.getBytes();
 
-                    FileOutputStream fos = new FileOutputStream(principalAudioFile);
+                            FileOutputStream fos = new FileOutputStream(principalAudioFile);
 
-                    fos.write(principalAudioFileByteContent);
+                            fos.write(principalAudioFileByteContent);
 
-                    fos.close();
-                } catch (IOException e) {
-                    log.warn(e.getMessage());
+                            fos.close();
+                        } catch (IOException e) {
+                            log.warn(e.getMessage());
+                        }
+
+                        DeepGramTranscribeResponse deepGramTranscribeResponse =
+                                deepGramApi.transcribe("nova-2", true, "ru", principalAudioFile);
+
+                        String transcriptStringWithCode = deepGramTranscribeResponse.getResult().getChannels()[0]
+                                .getAlternatives()[0].getTranscript();
+
+                        String code = stringUtil.extractDigits(transcriptStringWithCode);
+
+                        File newAudioBackupFile;
+
+                        Date currentDate = new Date(System.currentTimeMillis());
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("HH.mm.ss dd.MM.yyyy");
+
+                        String newAudioBackupFileName = sdf.format(currentDate) + " {code " + code + "}" + principalAudioFileExtension;
+                        newAudioBackupFileName = newAudioBackupFileName.replaceAll(":", " ");
+
+                        try {
+                            newAudioBackupFile = new File(audioBackupFilesPath + newAudioBackupFileName);
+
+                            FileSystemUtils.copyRecursively(principalAudioFile, newAudioBackupFile);
+                        } catch (IOException e) {
+                            log.warn(e.getMessage());
+                        }
+
+                        principalAudioFile.delete();
+
+                        return CreateCallResponse.builder()
+                                .code(code)
+                                .build();
+                    }
                 }
+            }
+            case "whisper-1" -> {
+                switch (type) {
+                    case TELEGRAM -> {
+                        File newWavFile = null;
+                        File newMp3File = null;
 
-                DeepGramTranscribeResponse deepGramTranscribeResponse =
-                        deepGramApi.transcribe("nova-2", true, "ru", principalAudioFile);
+                        try {
+                            newWavFile = File.createTempFile("audioWav", ".wav");
 
-                String transcriptStringWithCode = deepGramTranscribeResponse.getResult().getChannels()[0]
-                        .getAlternatives()[0].getTranscript();
+                            audioFile.transferTo(newWavFile);
+                        } catch (IOException e) {
+                            log.warn(e.getMessage());
+                        }
 
-                String code = stringUtil.extractDigits(transcriptStringWithCode);
+                        String mp3FilePath = newWavFile.getPath().replaceAll(".wav", ".mp3");
 
-                File newAudioBackupFile;
+                        newMp3File = ffmpegApi.fromWavToMp3(newWavFile.getPath(), mp3FilePath);
 
-                Date currentDate = new Date(System.currentTimeMillis());
+                        newWavFile.delete();
 
-                SimpleDateFormat sdf = new SimpleDateFormat("HH.mm.ss dd.MM.yyyy");
+                        String transcriptionAudioText = openaiApi.createTranscription(
+                                OpenaiCreateTranscriptionRequest.builder()
+                                        .file(newMp3File)
+                                        .model("whisper-1")
+                                        .language("ru")
+                                        .temperature(0.5f)
+                                        .build()
+                        ).getText();
 
-                String newAudioBackupFileName = sdf.format(currentDate) + " {code " + code + "}" + principalAudioFileExtension;
-                newAudioBackupFileName = newAudioBackupFileName.replaceAll(":", " ");
+                        String codeString = stringUtil.extractDigits(transcriptionAudioText);
 
-                try {
-                    newAudioBackupFile = new File(audioBackupFilesPath + newAudioBackupFileName);
+                        log.info("Created transcription with {} model, transcriptionAudioText: {} codeString: {}",
+                                model, transcriptionAudioText, codeString);
 
-                    FileSystemUtils.copyRecursively(principalAudioFile, newAudioBackupFile);
-                } catch (IOException e) {
-                    log.warn(e.getMessage());
+                        File newAudioBackupFile;
+
+                        Date currentDate = new Date(System.currentTimeMillis());
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("HH.mm.ss dd.MM.yyyy");
+
+                        String newAudioBackupFileName = sdf.format(currentDate) + " {code " + codeString + "}.mp3";
+
+                        newAudioBackupFileName = newAudioBackupFileName.replaceAll(":", " ");
+
+                        try {
+                            newAudioBackupFile = new File(audioBackupFilesPath + newAudioBackupFileName);
+
+                            FileSystemUtils.copyRecursively(newMp3File, newAudioBackupFile);
+                        } catch (IOException e) {
+                            log.warn(e.getMessage());
+                        }
+
+                        newMp3File.delete();
+
+                        return CreateCallResponse.builder()
+                                .code(codeString)
+                                .build();
+                    }
                 }
-
-                principalAudioFile.delete();
-
-                return CreateCallResponse.builder()
-                        .code(code)
-                        .build();
             }
         }
         return null;

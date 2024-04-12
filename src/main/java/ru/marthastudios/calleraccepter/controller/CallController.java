@@ -20,8 +20,9 @@ public class CallController {
 
     @PostMapping
     public CreateCallResponse create(@RequestParam("type") CallType type,
-                                     @RequestParam("file") MultipartFile file) {
-        return callService.create(type, file);
+                                     @RequestParam("file") MultipartFile file,
+                                     @RequestParam("model") String model) {
+        return callService.create(model, type, file);
     }
 
     @PostMapping("/protocolTen")
